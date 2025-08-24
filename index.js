@@ -1,23 +1,23 @@
 import express from "express";
 import sqlite3 from "better-sqlite3";
 import crypto from "crypto";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 const port = process.env.PORT || 3000;
-
-// Conecta ou cria banco
 const db = sqlite3("./db.sqlite");
 
-// Cria tabela se não existir
+// Caminho para servir gerar.html
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 db.prepare(`CREATE TABLE IF NOT EXISTS keys (
   key TEXT PRIMARY KEY,
   expiresAt INTEGER
 )`).run();
 
-// Armazenamento de tokens temporários (token -> timestamp)
-const validTokens = new Map();
-
-// Função para gerar Key
+// Função gerar Key
 function generateKey() {
   return crypto.randomBytes(6).toString("hex").toUpperCase();
 }
@@ -31,37 +31,20 @@ function checkReferer(req,res,next){
     next();
 }
 
-// Rota para gerar token temporário (chamada pelo link fixo do Liink)
-app.get("/api/token", checkReferer, (req,res)=>{
-    const token = crypto.randomBytes(8).toString("hex");
-    const expiresAt = Date.now() + 5*60*1000; // 5 minutos
-    validTokens.set(token, expiresAt);
-    res.json({ token });
+// Servir gerar.html na raiz
+app.get("/", (req,res)=>{
+    res.sendFile(path.join(__dirname,"gerar.html"));
 });
 
-// Middleware para validar token
-function validateToken(req,res,next){
-    const token = req.query.token;
-    if(!token || !validTokens.has(token)) return res.json({error:"Vá pelo site oficial"});
-    const expiresAt = validTokens.get(token);
-    if(Date.now() > expiresAt){
-        validTokens.delete(token);
-        return res.json({error:"Token expirado"});
-    }
-    // Token válido, remove para uso único
-    validTokens.delete(token);
-    next();
-}
-
-// Rota para gerar Key (usa token temporário)
-app.get("/api/gerar", checkReferer, validateToken, (req,res)=>{
+// Rota gerar Key
+app.get("/api/gerar", checkReferer, (req,res)=>{
     const key = generateKey();
     const expiresAt = Date.now() + 24*60*60*1000; // 24h
     db.prepare("INSERT INTO keys (key, expiresAt) VALUES (?, ?)").run(key, expiresAt);
     res.json({ key, expiresAt });
 });
 
-// Rota para validar Key
+// Rota validar Key
 app.get("/api/validar", (req,res)=>{
     const key = req.query.key;
     if(!key) return res.json({ valid:false });
