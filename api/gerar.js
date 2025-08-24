@@ -1,28 +1,19 @@
-import Database from "@replit/database";
-import crypto from "crypto";
+import { Database } from "@replit/database";
+import { randomBytes } from "crypto";
 
-const db = new Database();
+const db = new Database(process.env.REPLIT_DB_URL); // 🔑 URL do Replit DB no .env
 
-export default async function handler(req,res){
-    // Limpar Keys antigas
-    const allKeys = await db.list();
-    const agora = Date.now();
-    for(const key of allKeys){
-        const timestamp = await db.get(key);
-        if(agora - timestamp > 24*60*60*1000){
-            await db.delete(key);
-        }
-    }
+export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Método não permitido" });
+  }
 
-    // Criar Key nova
-    const key = crypto.randomBytes(6).toString("hex").toUpperCase();
-    await db.set(key, agora);
+  // Gerar uma key única
+  const key = randomBytes(16).toString("hex");
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // expira em 24h
 
-    res.setHeader("Content-Type","text/html");
-    res.status(200).send(`
-        <h1>Sua Key:</h1>
-        <h2>${key}</h2>
-        <p>✅ Valida por 24 horas</p>
-        <p>Copie e cole no script</p>
-    `);
+  // Salvar no Replit DB
+  await db.set(key, { valid: true, expiresAt });
+
+  return res.status(200).json({ key, expiresAt });
 }
