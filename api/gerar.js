@@ -1,19 +1,25 @@
-import { Database } from "@replit/database";
-import { randomBytes } from "crypto";
+import express from "express";
+import sqlite3 from "better-sqlite3";
+import crypto from "crypto";
 
-const db = new Database(process.env.REPLIT_DB_URL); // 🔑 URL do Replit DB no .env
+const app = express();
+const db = sqlite3("./db.sqlite");
 
-export default async function handler(req, res) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Método não permitido" });
-  }
+// Cria tabela se não existir
+db.prepare(`CREATE TABLE IF NOT EXISTS keys (
+  key TEXT PRIMARY KEY,
+  expiresAt INTEGER
+)`).run();
 
-  // Gerar uma key única
-  const key = randomBytes(16).toString("hex");
-  const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // expira em 24h
+app.get("/", (req,res) => {
+  // Gera key
+  const key = crypto.randomBytes(6).toString("hex").toUpperCase();
+  const expiresAt = Date.now() + 24*60*60*1000; // 24h
 
-  // Salvar no Replit DB
-  await db.set(key, { valid: true, expiresAt });
+  // Salva no DB
+  db.prepare("INSERT INTO keys (key, expiresAt) VALUES (?, ?)").run(key, expiresAt);
 
-  return res.status(200).json({ key, expiresAt });
-}
+  res.json({ key, expiresAt });
+});
+
+export default app;
