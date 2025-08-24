@@ -6,12 +6,21 @@ import { fileURLToPath } from "url";
 
 const app = express();
 const port = process.env.PORT || 3000;
-const db = sqlite3("./db.sqlite");
 
 // Caminho para servir gerar.html
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Cria a pasta data se não existir
+import fs from "fs";
+if (!fs.existsSync(path.join(__dirname, "data"))) {
+  fs.mkdirSync(path.join(__dirname, "data"));
+}
+
+// Conecta ou cria banco
+const db = sqlite3(path.join(__dirname, "data/db.sqlite"));
+
+// Cria tabela se não existir
 db.prepare(`CREATE TABLE IF NOT EXISTS keys (
   key TEXT PRIMARY KEY,
   expiresAt INTEGER
