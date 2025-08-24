@@ -26,7 +26,7 @@ app.get("/", (req, res) => {
 app.get("/api/gerar", (req, res) => {
   const referer = req.get("referer") || "";
 
-  if(!referer.includes("liink.uk")) {
+  if(!referer.includes("shrt.liink.uk")) {
     return res.status(403).json({ error: "Acesso negado! Abra pelo link oficial." });
   }
 
