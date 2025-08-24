@@ -1,6 +1,6 @@
-import express from "express";
-import sqlite3 from "better-sqlite3";
-import crypto from "crypto";
+const express = require("express");
+const sqlite3 = require("better-sqlite3");
+const crypto = require("crypto");
 
 const app = express();
 const port = process.env.PORT || 3000;
