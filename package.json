@@ -1,8 +1,9 @@
 {
-  "name": "meu-keysystem",
+  "name": "keysystem",
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "mongodb": "^6.9.0"
+    "@replit/database": "^2.0.1",
+    "crypto": "^1.0.1"
   }
 }
