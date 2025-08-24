@@ -1,25 +1,30 @@
-import { Database } from "@replit/database";
+import express from "express";
+import sqlite3 from "better-sqlite3";
 
-const db = new Database(process.env.REPLIT_DB_URL);
+const app = express();
+const db = sqlite3("./db.sqlite");
 
-export default async function handler(req, res) {
-  const { key } = req.query;
+// Cria tabela se não existir
+db.prepare(`CREATE TABLE IF NOT EXISTS keys (
+  key TEXT PRIMARY KEY,
+  expiresAt INTEGER
+)`).run();
 
-  if (!key) {
-    return res.status(400).json({ valid: false, error: "Key não fornecida" });
+app.get("/", (req,res) => {
+  const key = req.query.key;
+  if(!key) return res.json({ valid: false });
+
+  const row = db.prepare("SELECT * FROM keys WHERE key=?").get(key);
+
+  if(!row) return res.json({ valid: false });
+
+  if(Date.now() > row.expiresAt){
+    // Key expirada → remove do DB
+    db.prepare("DELETE FROM keys WHERE key=?").run(key);
+    return res.json({ valid: false });
   }
 
-  const data = await db.get(key);
+  res.json({ valid: true });
+});
 
-  if (!data) {
-    return res.status(200).json({ valid: false });
-  }
-
-  if (Date.now() > data.expiresAt) {
-    // expirou → remove do banco
-    await db.delete(key);
-    return res.status(200).json({ valid: false, error: "Key expirada" });
-  }
-
-  return res.status(200).json({ valid: true });
-}
+export default app;
