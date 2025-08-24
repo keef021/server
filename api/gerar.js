@@ -1,21 +1,19 @@
 import crypto from "crypto"
+import { connectToMongo } from "./mongo.js"
 
-let keys = global.keys || {}
-global.keys = keys
+export default async function handler(req,res){
+    const { db } = await connectToMongo()
+    const keysCollection = db.collection("keys")
 
-export default function handler(req, res) {
-    const agora = Date.now()
+    // Limpa keys expiradas
+    const agora = new Date()
+    await keysCollection.deleteMany({ createdAt: { $lt: new Date(agora - 24*60*60*1000) } })
 
-    for (let k in keys) {
-        if (agora - keys[k].createdAt > 24*60*60*1000) {
-            delete keys[k]
-        }
-    }
-
+    // Gera Key única
     const key = crypto.randomBytes(6).toString("hex").toUpperCase()
-    keys[key] = { createdAt: agora, valid: true }
+    await keysCollection.insertOne({ key, createdAt: new Date() })
 
-    res.setHeader("Content-Type", "text/html")
+    res.setHeader("Content-Type","text/html")
     res.status(200).send(`
         <h1>Sua Key:</h1>
         <h2>${key}</h2>
