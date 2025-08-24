@@ -1,79 +1,76 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Gerar Key</title>
-<style>
-  body {
-    background: #121212;
-    font-family: 'Segoe UI', sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    color: #fff;
-  }
-
-  .container {
-    background: #1e1e1e;
-    padding: 30px;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
-  }
-
-  button {
-    background: #00aaff;
-    color: #fff;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    margin-top: 15px;
-  }
-
-  button:hover {
-    background: #0090dd;
-  }
-
-  input {
-    padding: 10px;
-    border-radius: 8px;
-    border: none;
-    width: 80%;
-    text-align: center;
-    margin-top: 10px;
-    font-size: 16px;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Gerar Key - High Menu</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background-color: #111;
+      padding: 40px;
+      border-radius: 12px;
+      text-align: center;
+      width: 400px;
+      box-shadow: 0 0 20px rgba(255,255,255,0.2);
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    button {
+      background-color: #000;
+      color: #fff;
+      border: 2px solid #fff;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 20px;
+      width: 200px;
+    }
+    button:hover {
+      background-color: #222;
+    }
+    #status {
+      margin-top: 20px;
+      height: 24px;
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-  <h1>Gerar sua Key 🔑</h1>
-  <p>Clique no botão para gerar sua Key.</p>
-  <button id="gerarBtn">Gerar Key</button>
-  <input type="text" id="keyField" readonly placeholder="Sua Key aparecerá aqui"/>
-</div>
+  <div class="container">
+    <h1>Gerar sua Key</h1>
+    <p>Clique no botão abaixo para gerar sua Key exclusiva de 24h.</p>
+    <button id="gerarKeyBtn">Gerar Key</button>
+    <div id="status"></div>
+  </div>
 
-<script>
-  const btn = document.getElementById("gerarBtn");
-  const keyField = document.getElementById("keyField");
+  <script>
+    const btn = document.getElementById("gerarKeyBtn");
+    const status = document.getElementById("status");
 
-  btn.addEventListener("click", async () => {
-    try {
-      const res = await fetch("/api/gerar"); // O Referer será enviado automaticamente pelo navegador
-      const data = await res.json();
-      if(data.key) {
-        keyField.value = data.key;
-      } else {
-        keyField.value = data.error || "Erro ao gerar Key!";
+    btn.addEventListener("click", async () => {
+      status.textContent = "Gerando Key...";
+      try {
+        const res = await fetch("/api/gerar");
+        const data = await res.json();
+        if(data.key){
+          status.textContent = "Sua Key: " + data.key;
+        } else {
+          status.textContent = data.error || "Erro ao gerar Key";
+        }
+      } catch(err){
+        status.textContent = "Erro de conexão";
       }
-    } catch(e) {
-      keyField.value = "Erro ao gerar Key!";
-    }
-  });
-</script>
+    });
+  </script>
 </body>
 </html>
