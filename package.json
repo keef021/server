@@ -1,5 +1,8 @@
 {
-  "name": "high-keysystem",
+  "name": "meu-keysystem",
   "version": "1.0.0",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "mongodb": "^6.9.0"
+  }
 }
