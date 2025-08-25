@@ -1,13 +1,28 @@
 {
-  "name": "high",
+  "name": "high-menu-key-system",
   "version": "1.0.0",
+  "description": "Sistema de geração e validação de keys para High Menu",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "build": "echo 'Build completed'",
+    "test": "echo 'No tests specified'"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "better-sqlite3": "^8.2.0"
-  }
+    "better-sqlite3": "^9.2.2"
+  },
+  "keywords": [
+    "key-system",
+    "authentication",
+    "express",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "MIT"
 }
