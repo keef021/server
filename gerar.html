@@ -2,75 +2,315 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Pegar Key - High Menu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>High Menu - Gerar Key</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
     body {
-      font-family: Arial, sans-serif;
-      background-color: #000;
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #000000, #1a1a1a);
       color: #fff;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
       margin: 0;
+      padding: 20px;
     }
+    
     .container {
-      background-color: #111;
+      background: rgba(17, 17, 17, 0.9);
+      backdrop-filter: blur(10px);
       padding: 40px;
-      border-radius: 12px;
+      border-radius: 16px;
       text-align: center;
-      width: 400px;
-      box-shadow: 0 0 20px rgba(255,255,255,0.2);
+      width: 100%;
+      max-width: 450px;
+      box-shadow: 0 8px 32px rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
+    
     h1 {
-      margin-bottom: 20px;
+      margin-bottom: 10px;
+      font-size: 2rem;
+      background: linear-gradient(45deg, #fff, #ccc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
+    
+    .subtitle {
+      color: #aaa;
+      margin-bottom: 30px;
+      font-size: 0.9rem;
+    }
+    
+    .description {
+      color: #ccc;
+      margin-bottom: 30px;
+      line-height: 1.5;
+    }
+    
     button {
-      background-color: #000;
+      background: linear-gradient(45deg, #333, #555);
       color: #fff;
       border: 2px solid #fff;
-      padding: 12px 20px;
+      padding: 15px 30px;
       font-size: 16px;
-      border-radius: 8px;
+      font-weight: bold;
+      border-radius: 10px;
       cursor: pointer;
-      margin-top: 20px;
-      width: 200px;
+      width: 100%;
+      max-width: 250px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
     }
+    
     button:hover {
-      background-color: #222;
+      background: linear-gradient(45deg, #555, #777);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
     }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
     #status {
-      margin-top: 20px;
-      height: 24px;
+      margin-top: 30px;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .key-display {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      font-family: 'Courier New', monospace;
+      font-size: 1.1rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+      word-break: break-all;
+      margin-top: 10px;
+      color: #00ff00;
+    }
+    
+    .copy-btn {
+      background: #007acc;
+      border: none;
+      padding: 8px 16px;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.3s ease;
+    }
+    
+    .copy-btn:hover {
+      background: #005aa3;
+    }
+    
+    .error {
+      color: #ff4444;
+    }
+    
+    .success {
+      color: #44ff44;
+    }
+    
+    .loading {
+      color: #ffaa44;
+    }
+    
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid #fff;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .footer {
+      margin-top: 30px;
+      font-size: 0.8rem;
+      color: #666;
+    }
+    
+    @media (max-width: 480px) {
+      .container {
+        padding: 30px 20px;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Gerar sua Key</h1>
-    <p>Clique no botão abaixo para gerar sua Key exclusiva de 24h.</p>
-    <button id="gerarKeyBtn">Gerar Key</button>
+    <h1>High Menu</h1>
+    <p class="subtitle">Sistema de Keys</p>
+    <p class="description">
+      Clique no botão abaixo para gerar sua key exclusiva.<br>
+      <strong>Válida por 24 horas.</strong>
+    </p>
+    
+    <button id="gerarKeyBtn">
+      <span id="btnText">Gerar Key</span>
+    </button>
+    
     <div id="status"></div>
+    
+    <div class="footer">
+      <p>© 2024 High Menu - Todos os direitos reservados</p>
+    </div>
   </div>
 
   <script>
     const btn = document.getElementById("gerarKeyBtn");
     const status = document.getElementById("status");
+    const btnText = document.getElementById("btnText");
 
-    btn.addEventListener("click", async () => {
-      status.textContent = "Gerando Key...";
+    // Função para copiar texto
+    async function copyToClipboard(text) {
       try {
-        const res = await fetch("/api/gerar");
-        const data = await res.json();
-        if(data.key){
-          status.textContent = "Sua Key: " + data.key;
-        } else {
-          status.textContent = data.error || "Erro ao gerar Key";
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (err) {
+        // Fallback para navegadores mais antigos
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          return successful;
+        } catch (err) {
+          document.body.removeChild(textArea);
+          return false;
         }
-      } catch(err){
-        status.textContent = "Erro de conexão";
+      }
+    }
+
+    // Função para mostrar status de loading
+    function showLoading() {
+      btn.disabled = true;
+      btnText.innerHTML = '<span class="spinner"></span>Gerando...';
+      status.innerHTML = '<span class="loading">Conectando com o servidor...</span>';
+    }
+
+    // Função para resetar botão
+    function resetButton() {
+      btn.disabled = false;
+      btnText.textContent = "Gerar Nova Key";
+    }
+
+    // Função para formatar tempo restante
+    function formatTimeRemaining(expiresAt) {
+      const now = Date.now();
+      const remaining = expiresAt - now;
+      
+      if (remaining <= 0) return "Expirada";
+      
+      const hours = Math.floor(remaining / (1000 * 60 * 60));
+      const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+      
+      return `${hours}h ${minutes}m restantes`;
+    }
+
+    // Event listener para o botão
+    btn.addEventListener("click", async () => {
+      showLoading();
+      
+      try {
+        const response = await fetch("/api/gerar", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.key) {
+          const timeRemaining = formatTimeRemaining(data.expiresAt);
+          
+          status.innerHTML = `
+            <div class="success">✅ Key gerada com sucesso!</div>
+            <div class="key-display" id="keyDisplay">${data.key}</div>
+            <button class="copy-btn" onclick="copyKey('${data.key}')">📋 Copiar Key</button>
+            <div style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+              ${timeRemaining}
+            </div>
+          `;
+          
+          resetButton();
+        } else {
+          throw new Error(data.error || "Erro desconhecido");
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        status.innerHTML = `
+          <div class="error">❌ ${error.message}</div>
+          <div style="margin-top: 10px; font-size: 0.8rem; color: #666;">
+            Verifique sua conexão e tente novamente
+          </div>
+        `;
+        resetButton();
       }
     });
+
+    // Função global para copiar key
+    window.copyKey = async function(key) {
+      const success = await copyToClipboard(key);
+      const copyBtn = document.querySelector('.copy-btn');
+      
+      if (success) {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = "✅ Copiado!";
+        copyBtn.style.background = "#28a745";
+        
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+          copyBtn.style.background = "#007acc";
+        }, 2000);
+      } else {
+        alert("Não foi possível copiar automaticamente. Selecione e copie manualmente:\n\n" + key);
+      }
+    };
+
+    // Verificar se está vindo do referer correto (apenas aviso)
+    if (document.referrer && !document.referrer.includes('shrt.liink.uk')) {
+      console.warn('Acesso direto detectado');
+    }
   </script>
 </body>
 </html>
