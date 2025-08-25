@@ -30,7 +30,7 @@
       border-radius: 16px;
       text-align: center;
       width: 100%;
-      max-width: 450px;
+      max-width: 500px;
       box-shadow: 0 8px 32px rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
@@ -46,14 +46,44 @@
     
     .subtitle {
       color: #aaa;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
       font-size: 0.9rem;
     }
     
     .description {
       color: #ccc;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
       line-height: 1.5;
+      font-size: 0.95rem;
+    }
+    
+    .ip-info {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      color: #aaa;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .warning {
+      background: rgba(255, 193, 7, 0.1);
+      color: #ffc107;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      border: 1px solid rgba(255, 193, 7, 0.3);
+    }
+    
+    .existing-key {
+      background: rgba(40, 167, 69, 0.1);
+      color: #28a745;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(40, 167, 69, 0.3);
     }
     
     button {
@@ -66,7 +96,7 @@
       border-radius: 10px;
       cursor: pointer;
       width: 100%;
-      max-width: 250px;
+      max-width: 280px;
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
@@ -86,6 +116,26 @@
       opacity: 0.6;
       cursor: not-allowed;
       transform: none;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .secondary-btn {
+      background: linear-gradient(45deg, #007acc, #0099ff);
+      border: 2px solid #007acc;
+      max-width: 150px;
+      font-size: 14px;
+      padding: 12px 20px;
+    }
+    
+    .secondary-btn:hover {
+      background: linear-gradient(45deg, #0099ff, #00ccff);
+      border-color: #0099ff;
     }
     
     #status {
@@ -121,6 +171,7 @@
       cursor: pointer;
       margin-top: 10px;
       transition: background 0.3s ease;
+      color: white;
     }
     
     .copy-btn:hover {
@@ -169,33 +220,63 @@
       h1 {
         font-size: 1.5rem;
       }
+      
+      .button-group {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      button {
+        max-width: 100%;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>High Menu</h1>
-    <p class="subtitle">Sistema de Keys</p>
-    <p class="description">
-      Clique no botão abaixo para gerar sua key exclusiva.<br>
-      <strong>Válida por 24 horas.</strong>
-    </p>
+    <p class="subtitle">Sistema de Keys por IP</p>
     
-    <button id="gerarKeyBtn">
-      <span id="btnText">Gerar Key</span>
-    </button>
+    <div class="description">
+      <strong>🔒 Uma key por IP por 24 horas</strong><br>
+      Cada endereço IP pode gerar apenas uma key válida.
+    </div>
+    
+    <div class="ip-info" id="ipInfo">
+      <span id="ipDisplay">Carregando informações do IP...</span>
+    </div>
+    
+    <div class="warning">
+      ⚠️ <strong>Importante:</strong> Só funciona se você veio pelo link oficial do encurtador liink.uk
+    </div>
+    
+    <div id="existingKeyInfo" style="display: none;"></div>
+    
+    <div class="button-group">
+      <button id="gerarKeyBtn">
+        <span id="btnText">Verificar/Gerar Key</span>
+      </button>
+      
+      <button id="statusBtn" class="secondary-btn">
+        <span id="statusBtnText">Ver Status</span>
+      </button>
+    </div>
     
     <div id="status"></div>
     
     <div class="footer">
-      <p>© 2024 High Menu - Todos os direitos reservados</p>
+      <p>© 2024 High Menu - Sistema de Keys Seguro</p>
     </div>
   </div>
 
   <script>
-    const btn = document.getElementById("gerarKeyBtn");
+    const gerarBtn = document.getElementById("gerarKeyBtn");
+    const statusBtn = document.getElementById("statusBtn");
     const status = document.getElementById("status");
     const btnText = document.getElementById("btnText");
+    const statusBtnText = document.getElementById("statusBtnText");
+    const ipDisplay = document.getElementById("ipDisplay");
+    const existingKeyInfo = document.getElementById("existingKeyInfo");
 
     // Função para copiar texto
     async function copyToClipboard(text) {
@@ -203,7 +284,6 @@
         await navigator.clipboard.writeText(text);
         return true;
       } catch (err) {
-        // Fallback para navegadores mais antigos
         const textArea = document.createElement("textarea");
         textArea.value = text;
         document.body.appendChild(textArea);
@@ -220,17 +300,16 @@
       }
     }
 
-    // Função para mostrar status de loading
-    function showLoading() {
-      btn.disabled = true;
-      btnText.innerHTML = '<span class="spinner"></span>Gerando...';
-      status.innerHTML = '<span class="loading">Conectando com o servidor...</span>';
+    // Função para mostrar loading no botão
+    function showLoading(button, textElement, message) {
+      button.disabled = true;
+      textElement.innerHTML = `<span class="spinner"></span>${message}`;
     }
 
     // Função para resetar botão
-    function resetButton() {
-      btn.disabled = false;
-      btnText.textContent = "Gerar Nova Key";
+    function resetButton(button, textElement, text) {
+      button.disabled = false;
+      textElement.textContent = text;
     }
 
     // Função para formatar tempo restante
@@ -246,9 +325,39 @@
       return `${hours}h ${minutes}m restantes`;
     }
 
-    // Event listener para o botão
-    btn.addEventListener("click", async () => {
-      showLoading();
+    // Verificar status do IP ao carregar a página
+    async function checkIPStatus() {
+      try {
+        const response = await fetch("/api/status");
+        const data = await response.json();
+        
+        if (data.ip) {
+          ipDisplay.textContent = `Seu IP: ${data.ip}`;
+        }
+        
+        if (data.hasKey) {
+          existingKeyInfo.style.display = 'block';
+          existingKeyInfo.className = 'existing-key';
+          existingKeyInfo.innerHTML = `
+            <strong>✅ Você já possui uma key válida!</strong><br>
+            <div class="key-display" style="margin-top: 10px;">${data.key}</div>
+            <button class="copy-btn" onclick="copyKey('${data.key}')">📋 Copiar Key</button>
+            <div style="margin-top: 10px; font-size: 0.9rem;">
+              ${data.timeRemaining}
+            </div>
+          `;
+          btnText.textContent = "Gerar Nova Key";
+        }
+        
+      } catch (error) {
+        console.error("Erro ao verificar status:", error);
+        ipDisplay.textContent = "Erro ao obter informações do IP";
+      }
+    }
+
+    // Event listener para gerar key
+    gerarBtn.addEventListener("click", async () => {
+      showLoading(gerarBtn, btnText, "Gerando...");
       
       try {
         const response = await fetch("/api/gerar", {
@@ -272,44 +381,105 @@
             </div>
           `;
           
-          resetButton();
+          // Atualizar informações de key existente
+          existingKeyInfo.style.display = 'block';
+          existingKeyInfo.className = 'existing-key';
+          existingKeyInfo.innerHTML = `
+            <strong>✅ Key ativa para seu IP:</strong><br>
+            <div class="key-display" style="margin-top: 10px;">${data.key}</div>
+            <div style="margin-top: 10px; font-size: 0.9rem;">
+              ${timeRemaining}
+            </div>
+          `;
+          
+        } else if (response.status === 429) {
+          // IP já possui key
+          status.innerHTML = `
+            <div class="error">⏰ ${data.error}</div>
+            ${data.existingKey ? `
+              <div class="key-display" style="margin-top: 15px;">${data.existingKey}</div>
+              <button class="copy-btn" onclick="copyKey('${data.existingKey}')">📋 Copiar Key Existente</button>
+              <div style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                ${data.timeRemaining}
+              </div>
+            ` : ''}
+          `;
         } else {
           throw new Error(data.error || "Erro desconhecido");
         }
+        
+        resetButton(gerarBtn, btnText, "Gerar Nova Key");
+        
       } catch (error) {
         console.error("Erro:", error);
         status.innerHTML = `
           <div class="error">❌ ${error.message}</div>
           <div style="margin-top: 10px; font-size: 0.8rem; color: #666;">
-            Verifique sua conexão e tente novamente
+            ${error.message.includes('encurtador') ? 
+              'Use apenas o link oficial do encurtador' : 
+              'Verifique sua conexão e tente novamente'
+            }
           </div>
         `;
-        resetButton();
+        resetButton(gerarBtn, btnText, "Tentar Novamente");
       }
+    });
+
+    // Event listener para verificar status
+    statusBtn.addEventListener("click", async () => {
+      showLoading(statusBtn, statusBtnText, "Verificando...");
+      await checkIPStatus();
+      resetButton(statusBtn, statusBtnText, "Ver Status");
     });
 
     // Função global para copiar key
     window.copyKey = async function(key) {
       const success = await copyToClipboard(key);
-      const copyBtn = document.querySelector('.copy-btn');
+      const copyBtns = document.querySelectorAll('.copy-btn');
       
-      if (success) {
-        const originalText = copyBtn.textContent;
-        copyBtn.textContent = "✅ Copiado!";
-        copyBtn.style.background = "#28a745";
-        
-        setTimeout(() => {
-          copyBtn.textContent = originalText;
-          copyBtn.style.background = "#007acc";
-        }, 2000);
-      } else {
-        alert("Não foi possível copiar automaticamente. Selecione e copie manualmente:\n\n" + key);
-      }
+      copyBtns.forEach(copyBtn => {
+        if (copyBtn.onclick && copyBtn.onclick.toString().includes(key)) {
+          if (success) {
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = "✅ Copiado!";
+            copyBtn.style.background = "#28a745";
+            
+            setTimeout(() => {
+              copyBtn.textContent = originalText;
+              copyBtn.style.background = "#007acc";
+            }, 2000);
+          } else {
+            alert("Não foi possível copiar automaticamente. Selecione e copie manualmente:\n\n" + key);
+          }
+        }
+      });
     };
 
-    // Verificar se está vindo do referer correto (apenas aviso)
-    if (document.referrer && !document.referrer.includes('shrt.liink.uk')) {
-      console.warn('Acesso direto detectado');
+    // Verificar referer na inicialização
+    function checkRefererWarning() {
+      const referer = document.referrer;
+      const allowedDomains = ['liink.uk', 'shrt.liink.uk', 'go.liink.uk'];
+      
+      if (!referer || !allowedDomains.some(domain => referer.includes(domain))) {
+        const warning = document.querySelector('.warning');
+        warning.style.background = 'rgba(220, 53, 69, 0.1)';
+        warning.style.color = '#dc3545';
+        warning.style.borderColor = 'rgba(220, 53, 69, 0.3)';
+        warning.innerHTML = '🚫 <strong>Aviso:</strong> Você não veio pelo link oficial! As keys só funcionam através do encurtador liink.uk';
+      }
+    }
+
+    // Inicializar página
+    window.addEventListener('load', () => {
+      checkIPStatus();
+      checkRefererWarning();
+    });
+
+    // Verificar se está vindo do referer correto
+    if (document.referrer) {
+      console.log('Referer:', document.referrer);
+    } else {
+      console.warn('Nenhum referer detectado - acesso direto?');
     }
   </script>
 </body>
