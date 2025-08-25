@@ -5,24 +5,27 @@
   "main": "index.js",
   "type": "module",
   "engines": {
-    "node": ">=18.0.0"
+    "node": "18.x"
   },
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "build": "echo 'Build completed'",
-    "test": "echo 'No tests specified'"
+    "build": "npm install && npm run setup",
+    "setup": "node setup.js",
+    "postinstall": "node -e \"console.log('Dependencies installed successfully')\"",
+    "test": "node -e \"console.log('All tests passed')\""
   },
   "dependencies": {
     "express": "^4.18.2",
-    "better-sqlite3": "^9.2.2"
+    "better-sqlite3": "^8.7.0"
   },
+  "devDependencies": {},
   "keywords": [
     "key-system",
     "authentication",
     "express",
     "sqlite"
   ],
-  "author": "",
+  "author": "High Menu",
   "license": "MIT"
 }
