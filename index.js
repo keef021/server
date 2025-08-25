@@ -25,19 +25,27 @@ function initDatabase() {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    // Conecta ou cria banco
-    const db = sqlite3(path.join(dataDir, "db.sqlite"));
+    // Conecta ou cria banco com configurações otimizadas
+    const dbPath = path.join(dataDir, "db.sqlite");
+    const db = sqlite3(dbPath);
+
+    // Configurações do SQLite para melhor performance
+    db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL');
+    db.pragma('cache_size = 10000');
+    db.pragma('temp_store = memory');
 
     // Cria tabela se não existir
     db.prepare(`CREATE TABLE IF NOT EXISTS keys (
       key TEXT PRIMARY KEY,
       expiresAt INTEGER,
-      createdAt INTEGER DEFAULT (strftime('%s','now'))
+      createdAt INTEGER DEFAULT (strftime('%s','now') * 1000)
     )`).run();
 
+    console.log('✅ Database initialized successfully');
     return db;
   } catch (error) {
-    console.error("Erro ao inicializar banco:", error);
+    console.error("❌ Erro ao inicializar banco:", error);
     throw error;
   }
 }
@@ -184,6 +192,22 @@ app.get("/api/validar", (req, res) => {
       message: "Erro interno do servidor" 
     });
   }
+});
+
+// Health check para o Render
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.0',
+    database: 'connected'
+  });
+});
+
+// Ping endpoint
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
 });
 
 // Rota para estatísticas (opcional)
