@@ -1,7 +1,7 @@
 {
   "name": "high-menu-key-system",
-  "version": "1.0.0",
-  "description": "Sistema de geração e validação de keys para High Menu",
+  "version": "1.1.0",
+  "description": "Sistema de geração e validação de keys por IP para High Menu",
   "main": "index.js",
   "type": "module",
   "engines": {
@@ -10,10 +10,12 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "build": "npm install && npm run setup",
+    "build": "npm install && npm run setup && npm run migrate",
     "setup": "node setup.js",
+    "migrate": "node migrate.js",
     "postinstall": "node -e \"console.log('Dependencies installed successfully')\"",
-    "test": "node -e \"console.log('All tests passed')\""
+    "test": "node -e \"console.log('All tests passed')\"",
+    "reset-db": "rm -f data/db.sqlite && npm run migrate"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -24,7 +26,8 @@
     "key-system",
     "authentication",
     "express",
-    "sqlite"
+    "sqlite",
+    "ip-validation"
   ],
   "author": "High Menu",
   "license": "MIT"
