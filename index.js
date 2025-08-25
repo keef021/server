@@ -12,9 +12,23 @@ const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware para parsing JSON
+// Middleware para parsing JSON e obter IP real
 app.use(express.json());
 app.use(express.static(__dirname));
+
+// Middleware para obter IP real considerando proxies
+app.use((req, res, next) => {
+  // Pega o IP real considerando proxies/load balancers
+  req.realIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+              req.headers['x-real-ip'] ||
+              req.connection.remoteAddress ||
+              req.socket.remoteAddress ||
+              (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
+              req.ip;
+  
+  console.log(`🔍 Real IP detected: ${req.realIP}`);
+  next();
+});
 
 // Função para inicializar banco de dados
 function initDatabase() {
@@ -35,12 +49,31 @@ function initDatabase() {
     db.pragma('cache_size = 10000');
     db.pragma('temp_store = memory');
 
-    // Cria tabela se não existir
+    // Cria tabela atualizada com IP
     db.prepare(`CREATE TABLE IF NOT EXISTS keys (
       key TEXT PRIMARY KEY,
-      expiresAt INTEGER,
-      createdAt INTEGER DEFAULT (strftime('%s','now') * 1000)
+      ip_address TEXT NOT NULL,
+      expiresAt INTEGER NOT NULL,
+      createdAt INTEGER DEFAULT (strftime('%s','now') * 1000),
+      UNIQUE(ip_address)
     )`).run();
+
+    // Migração para adicionar coluna ip_address se não existir
+    try {
+      db.prepare(`ALTER TABLE keys ADD COLUMN ip_address TEXT`).run();
+      console.log('✅ Coluna ip_address adicionada à tabela existente');
+    } catch (error) {
+      // Coluna já existe ou tabela já foi criada com a nova estrutura
+      console.log('✅ Estrutura da tabela já está atualizada');
+    }
+
+    // Cria índice para IP para melhor performance
+    try {
+      db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ip_address ON keys(ip_address)`).run();
+      console.log('✅ Índice de IP criado');
+    } catch (error) {
+      console.log('✅ Índice de IP já existe');
+    }
 
     console.log('✅ Database initialized successfully');
     return db;
@@ -80,52 +113,22 @@ function cleanExpiredKeys() {
 // Limpar keys expiradas a cada hora
 setInterval(cleanExpiredKeys, 60 * 60 * 1000);
 
-// Middleware para checar Referer (atualizado para múltiplos redirecionamentos)
-function checkReferer(req, res, next) {
-  const referer = req.get("Referer") || "";
-  const origin = req.get("Origin") || "";
-  const userAgent = req.get("User-Agent") || "";
+// Função para verificar se o referer é válido
+function isValidReferer(referer) {
+  if (!referer) return false;
   
-  // Lista de domínios permitidos (incluindo todos os redirecionamentos)
   const allowedDomains = [
     "liink.uk",
     "shrt.liink.uk", 
-    "go.liink.uk",
-    "server-9hqm.onrender.com",
-    "localhost",
-    "127.0.0.1"
+    "go.liink.uk"
   ];
   
-  // Permite localhost para desenvolvimento
-  if (req.hostname === 'localhost' || req.hostname === '127.0.0.1') {
-    return next();
-  }
-  
-  // Verifica se vem de qualquer domínio permitido
-  const isAllowed = allowedDomains.some(domain => 
-    referer.includes(domain) || origin.includes(domain) || req.hostname.includes(domain)
-  );
-  
-  // Se não tem referer mas vem diretamente do seu domínio, permite
-  if (!referer && !origin && req.hostname.includes("onrender.com")) {
-    return next();
-  }
-  
-  // Log para debug
-  console.log(`🔍 Referer check - Referer: ${referer}, Origin: ${origin}, Hostname: ${req.hostname}`);
-  
-  if (!isAllowed && referer && origin) {
-    return res.status(403).json({ 
-      error: "Acesso negado. Vá pelo site oficial." 
-    });
-  }
-  
-  next();
+  return allowedDomains.some(domain => referer.includes(domain));
 }
 
 // Middleware de log para debugging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${req.realIP}`);
   next();
 });
 
@@ -139,69 +142,78 @@ app.get("/", (req, res) => {
   }
 });
 
-// Rota para gerar Key (com verificação mais flexível)
+// Rota para gerar Key (APENAS com referer do liink.uk e uma key por IP)
 app.get("/api/gerar", (req, res) => {
   try {
-    // Verificação mais flexível para referer
     const referer = req.get("Referer") || "";
-    const origin = req.get("Origin") || "";
-    const host = req.get("Host") || "";
-    
-    // Lista de domínios permitidos
-    const allowedDomains = [
-      "liink.uk",
-      "shrt.liink.uk", 
-      "go.liink.uk",
-      "onrender.com"
-    ];
+    const userIP = req.realIP;
     
     // Log para debug
-    console.log(`🔍 Request details:`, {
+    console.log(`🔍 Geração de Key:`, {
       referer,
-      origin, 
-      host,
-      ip: req.ip,
+      ip: userIP,
       userAgent: req.get("User-Agent")?.substring(0, 50)
     });
     
-    // Verifica se vem de domínio permitido ou acesso direto ao seu domínio
-    const isFromAllowedDomain = allowedDomains.some(domain => 
-      referer.includes(domain) || origin.includes(domain)
-    );
-    
-    const isDirectAccess = host.includes("onrender.com") && !referer;
-    
-    // Permite se for de domínio permitido OU acesso direto ao seu servidor
-    if (!isFromAllowedDomain && !isDirectAccess && referer) {
-      console.log(`❌ Blocked request from: ${referer || origin || 'unknown'}`);
+    // VERIFICAÇÃO OBRIGATÓRIA: Deve vir do encurtador liink.uk
+    if (!isValidReferer(referer)) {
+      console.log(`❌ Blocked - Invalid referer: ${referer} for IP: ${userIP}`);
       return res.status(403).json({ 
-        error: "Vá pelo site oficial para gerar sua key" 
+        error: "Acesso negado. Use apenas o link oficial do encurtador." 
       });
     }
     
-    // Limpa keys expiradas antes de gerar nova
+    // Limpa keys expiradas antes de verificar
     cleanExpiredKeys();
     
+    // Verifica se o IP já possui uma key válida
+    const existingKey = db.prepare("SELECT * FROM keys WHERE ip_address = ? AND expiresAt > ?")
+      .get(userIP, Date.now());
+    
+    if (existingKey) {
+      const timeRemaining = existingKey.expiresAt - Date.now();
+      const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+      
+      console.log(`⚠️ IP ${userIP} já possui key válida: ${existingKey.key}`);
+      
+      return res.status(429).json({ 
+        error: `Seu IP já possui uma key válida. Tempo restante: ${hours}h ${minutes}m`,
+        existingKey: existingKey.key,
+        expiresAt: existingKey.expiresAt,
+        timeRemaining: `${hours}h ${minutes}m`
+      });
+    }
+    
+    // Gera nova key
     const key = generateKey();
     const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 horas
     const createdAt = Date.now();
     
-    // Insere nova key
-    db.prepare("INSERT INTO keys (key, expiresAt, createdAt) VALUES (?, ?, ?)")
-      .run(key, expiresAt, createdAt);
-    
-    console.log(`✅ Nova key gerada: ${key} (expires: ${new Date(expiresAt).toLocaleString()})`);
-    
-    res.json({ 
-      key, 
-      expiresAt,
-      message: "Key gerada com sucesso! Válida por 24 horas."
-    });
+    try {
+      // Insere nova key (UNIQUE constraint garante apenas uma key por IP)
+      db.prepare("INSERT OR REPLACE INTO keys (key, ip_address, expiresAt, createdAt) VALUES (?, ?, ?, ?)")
+        .run(key, userIP, expiresAt, createdAt);
+      
+      console.log(`✅ Nova key gerada: ${key} para IP: ${userIP} (expires: ${new Date(expiresAt).toLocaleString()})`);
+      
+      res.json({ 
+        key, 
+        expiresAt,
+        message: "Key gerada com sucesso! Válida por 24 horas para seu IP."
+      });
+      
+    } catch (error) {
+      console.error("❌ Erro ao inserir key no banco:", error);
+      res.status(500).json({ 
+        error: "Erro ao gerar key. Tente novamente." 
+      });
+    }
     
   } catch (error) {
     console.error("❌ Erro ao gerar key:", error);
     res.status(500).json({ 
-      error: "Erro ao gerar key. Tente novamente." 
+      error: "Erro interno. Tente novamente." 
     });
   }
 });
@@ -210,6 +222,7 @@ app.get("/api/gerar", (req, res) => {
 app.get("/api/validar", (req, res) => {
   try {
     const key = req.query.key;
+    const userIP = req.realIP;
     
     if (!key) {
       return res.json({ 
@@ -218,10 +231,21 @@ app.get("/api/validar", (req, res) => {
       });
     }
 
-    // Busca a key no banco
-    const row = db.prepare("SELECT * FROM keys WHERE key = ?").get(key);
+    // Busca a key no banco verificando também o IP
+    const row = db.prepare("SELECT * FROM keys WHERE key = ? AND ip_address = ?").get(key, userIP);
     
     if (!row) {
+      // Verifica se a key existe mas é de outro IP
+      const keyExists = db.prepare("SELECT * FROM keys WHERE key = ?").get(key);
+      
+      if (keyExists) {
+        console.log(`❌ Key ${key} existe mas IP não confere. Key IP: ${keyExists.ip_address}, Request IP: ${userIP}`);
+        return res.json({ 
+          valid: false, 
+          message: "Key não pertence ao seu IP" 
+        });
+      }
+      
       return res.json({ 
         valid: false, 
         message: "Key não encontrada" 
@@ -232,6 +256,7 @@ app.get("/api/validar", (req, res) => {
     if (Date.now() > row.expiresAt) {
       // Remove key expirada
       db.prepare("DELETE FROM keys WHERE key = ?").run(key);
+      console.log(`🗑️ Key expirada removida: ${key} (IP: ${userIP})`);
       return res.json({ 
         valid: false, 
         message: "Key expirada" 
@@ -239,10 +264,12 @@ app.get("/api/validar", (req, res) => {
     }
 
     // Key válida
+    console.log(`✅ Key válida: ${key} (IP: ${userIP})`);
     res.json({ 
       valid: true, 
       message: "Key válida",
-      expiresAt: row.expiresAt
+      expiresAt: row.expiresAt,
+      ip: userIP
     });
     
   } catch (error) {
@@ -260,7 +287,7 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: '1.0.0',
+    version: '1.1.0',
     database: 'connected'
   });
 });
@@ -277,14 +304,50 @@ app.get("/api/stats", (req, res) => {
     const activeKeys = db.prepare("SELECT COUNT(*) as count FROM keys WHERE expiresAt > ?")
       .get(Date.now());
     
+    // Stats por IP (não exibe IPs por privacidade)
+    const uniqueIPs = db.prepare("SELECT COUNT(DISTINCT ip_address) as count FROM keys WHERE expiresAt > ?")
+      .get(Date.now());
+    
     res.json({
       total: totalKeys.count,
       active: activeKeys.count,
-      expired: totalKeys.count - activeKeys.count
+      expired: totalKeys.count - activeKeys.count,
+      uniqueActiveIPs: uniqueIPs.count
     });
   } catch (error) {
     console.error("Erro ao obter estatísticas:", error);
     res.status(500).json({ error: "Erro ao obter estatísticas" });
+  }
+});
+
+// Nova rota para verificar status do IP atual
+app.get("/api/status", (req, res) => {
+  try {
+    const userIP = req.realIP;
+    const existingKey = db.prepare("SELECT * FROM keys WHERE ip_address = ? AND expiresAt > ?")
+      .get(userIP, Date.now());
+    
+    if (existingKey) {
+      const timeRemaining = existingKey.expiresAt - Date.now();
+      const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+      
+      res.json({
+        hasKey: true,
+        key: existingKey.key,
+        expiresAt: existingKey.expiresAt,
+        timeRemaining: `${hours}h ${minutes}m`,
+        ip: userIP
+      });
+    } else {
+      res.json({
+        hasKey: false,
+        ip: userIP
+      });
+    }
+  } catch (error) {
+    console.error("Erro ao verificar status:", error);
+    res.status(500).json({ error: "Erro ao verificar status" });
   }
 });
 
@@ -323,6 +386,8 @@ process.on('SIGINT', () => {
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
   console.log(`📊 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔒 Sistema de Key por IP ativado`);
+  console.log(`🌐 Apenas referers liink.uk permitidos`);
   
   // Limpa keys expiradas na inicialização
   cleanExpiredKeys();
