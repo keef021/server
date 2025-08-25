@@ -80,18 +80,41 @@ function cleanExpiredKeys() {
 // Limpar keys expiradas a cada hora
 setInterval(cleanExpiredKeys, 60 * 60 * 1000);
 
-// Middleware para checar Referer
+// Middleware para checar Referer (atualizado para múltiplos redirecionamentos)
 function checkReferer(req, res, next) {
   const referer = req.get("Referer") || "";
   const origin = req.get("Origin") || "";
+  const userAgent = req.get("User-Agent") || "";
+  
+  // Lista de domínios permitidos (incluindo todos os redirecionamentos)
+  const allowedDomains = [
+    "liink.uk",
+    "shrt.liink.uk", 
+    "go.liink.uk",
+    "server-9hqm.onrender.com",
+    "localhost",
+    "127.0.0.1"
+  ];
   
   // Permite localhost para desenvolvimento
   if (req.hostname === 'localhost' || req.hostname === '127.0.0.1') {
     return next();
   }
   
-  // Verifica se vem do site oficial
-  if (!referer.includes("shrt.liink.uk") && !origin.includes("shrt.liink.uk")) {
+  // Verifica se vem de qualquer domínio permitido
+  const isAllowed = allowedDomains.some(domain => 
+    referer.includes(domain) || origin.includes(domain) || req.hostname.includes(domain)
+  );
+  
+  // Se não tem referer mas vem diretamente do seu domínio, permite
+  if (!referer && !origin && req.hostname.includes("onrender.com")) {
+    return next();
+  }
+  
+  // Log para debug
+  console.log(`🔍 Referer check - Referer: ${referer}, Origin: ${origin}, Hostname: ${req.hostname}`);
+  
+  if (!isAllowed && referer && origin) {
     return res.status(403).json({ 
       error: "Acesso negado. Vá pelo site oficial." 
     });
@@ -116,9 +139,46 @@ app.get("/", (req, res) => {
   }
 });
 
-// Rota para gerar Key
-app.get("/api/gerar", checkReferer, (req, res) => {
+// Rota para gerar Key (com verificação mais flexível)
+app.get("/api/gerar", (req, res) => {
   try {
+    // Verificação mais flexível para referer
+    const referer = req.get("Referer") || "";
+    const origin = req.get("Origin") || "";
+    const host = req.get("Host") || "";
+    
+    // Lista de domínios permitidos
+    const allowedDomains = [
+      "liink.uk",
+      "shrt.liink.uk", 
+      "go.liink.uk",
+      "onrender.com"
+    ];
+    
+    // Log para debug
+    console.log(`🔍 Request details:`, {
+      referer,
+      origin, 
+      host,
+      ip: req.ip,
+      userAgent: req.get("User-Agent")?.substring(0, 50)
+    });
+    
+    // Verifica se vem de domínio permitido ou acesso direto ao seu domínio
+    const isFromAllowedDomain = allowedDomains.some(domain => 
+      referer.includes(domain) || origin.includes(domain)
+    );
+    
+    const isDirectAccess = host.includes("onrender.com") && !referer;
+    
+    // Permite se for de domínio permitido OU acesso direto ao seu servidor
+    if (!isFromAllowedDomain && !isDirectAccess && referer) {
+      console.log(`❌ Blocked request from: ${referer || origin || 'unknown'}`);
+      return res.status(403).json({ 
+        error: "Vá pelo site oficial para gerar sua key" 
+      });
+    }
+    
     // Limpa keys expiradas antes de gerar nova
     cleanExpiredKeys();
     
@@ -130,7 +190,7 @@ app.get("/api/gerar", checkReferer, (req, res) => {
     db.prepare("INSERT INTO keys (key, expiresAt, createdAt) VALUES (?, ?, ?)")
       .run(key, expiresAt, createdAt);
     
-    console.log(`Nova key gerada: ${key}`);
+    console.log(`✅ Nova key gerada: ${key} (expires: ${new Date(expiresAt).toLocaleString()})`);
     
     res.json({ 
       key, 
@@ -139,7 +199,7 @@ app.get("/api/gerar", checkReferer, (req, res) => {
     });
     
   } catch (error) {
-    console.error("Erro ao gerar key:", error);
+    console.error("❌ Erro ao gerar key:", error);
     res.status(500).json({ 
       error: "Erro ao gerar key. Tente novamente." 
     });
