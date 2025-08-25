@@ -114,16 +114,35 @@ function cleanExpiredKeys() {
 setInterval(cleanExpiredKeys, 60 * 60 * 1000);
 
 // Função para verificar se o referer é válido
-function isValidReferer(referer) {
-  if (!referer) return false;
-  
+function isValidReferer(referer, origin, host) {
+  // Lista de domínios permitidos
   const allowedDomains = [
     "liink.uk",
     "shrt.liink.uk", 
     "go.liink.uk"
   ];
   
-  return allowedDomains.some(domain => referer.includes(domain));
+  // Verifica referer
+  if (referer && allowedDomains.some(domain => referer.includes(domain))) {
+    return true;
+  }
+  
+  // Verifica origin
+  if (origin && allowedDomains.some(domain => origin.includes(domain))) {
+    return true;
+  }
+  
+  // Permite se for acesso ao próprio domínio (para desenvolvimento/produção)
+  if (host && (host.includes('onrender.com') || host.includes('localhost') || host.includes('127.0.0.1'))) {
+    return true;
+  }
+  
+  // Se não tem referer nem origin, pode ser redirecionamento válido
+  if (!referer && !origin) {
+    return true;
+  }
+  
+  return false;
 }
 
 // Middleware de log para debugging
@@ -146,22 +165,32 @@ app.get("/", (req, res) => {
 app.get("/api/gerar", (req, res) => {
   try {
     const referer = req.get("Referer") || "";
+    const origin = req.get("Origin") || "";
+    const host = req.get("Host") || "";
     const userIP = req.realIP;
     
     // Log para debug
     console.log(`🔍 Geração de Key:`, {
       referer,
+      origin,
+      host,
       ip: userIP,
       userAgent: req.get("User-Agent")?.substring(0, 50)
     });
     
-    // VERIFICAÇÃO OBRIGATÓRIA: Deve vir do encurtador liink.uk
-    if (!isValidReferer(referer)) {
-      console.log(`❌ Blocked - Invalid referer: ${referer} for IP: ${userIP}`);
+    // VERIFICAÇÃO MAIS PERMISSIVA: Verifica múltiplas fontes
+    if (!isValidReferer(referer, origin, host)) {
+      console.log(`❌ Blocked - Invalid access for IP: ${userIP}`);
+      console.log(`   Referer: ${referer}`);
+      console.log(`   Origin: ${origin}`);
+      console.log(`   Host: ${host}`);
+      
       return res.status(403).json({ 
-        error: "Acesso negado. Use apenas o link oficial do encurtador." 
+        error: "Acesso negado. Use o link oficial." 
       });
     }
+    
+    console.log(`✅ Referer validation passed for IP: ${userIP}`);
     
     // Limpa keys expiradas antes de verificar
     cleanExpiredKeys();
@@ -178,7 +207,7 @@ app.get("/api/gerar", (req, res) => {
       console.log(`⚠️ IP ${userIP} já possui key válida: ${existingKey.key}`);
       
       return res.status(429).json({ 
-        error: `Seu IP já possui uma key válida. Tempo restante: ${hours}h ${minutes}m`,
+        error: `Você já possui uma key válida. Tempo restante: ${hours}h ${minutes}m`,
         existingKey: existingKey.key,
         expiresAt: existingKey.expiresAt,
         timeRemaining: `${hours}h ${minutes}m`
@@ -200,7 +229,7 @@ app.get("/api/gerar", (req, res) => {
       res.json({ 
         key, 
         expiresAt,
-        message: "Key gerada com sucesso! Válida por 24 horas para seu IP."
+        message: "Key gerada com sucesso! Válida por 24 horas."
       });
       
     } catch (error) {
